@@ -15,7 +15,7 @@ class NudeGirlParser:
 
     def load_nude_images(self,
                          start_id: int = 1,
-                         end_id: int = 299999):
+                         end_id: int = 39999):
         if not os.path.exists(self.img_dir_path):
             os.makedirs(self.img_dir_path)
         data = pd.DataFrame(columns=['id', 'text', 'tags'])
