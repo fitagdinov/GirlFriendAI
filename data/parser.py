@@ -15,12 +15,12 @@ class NudeGirlParser:
 
     def load_nude_images(self,
                          start_id: int = 1,
-                         end_id: int = 99999):
+                         end_id: int = 299999):
         if not os.path.exists(self.img_dir_path):
             os.makedirs(self.img_dir_path)
         data = pd.DataFrame(columns=['id', 'text', 'tags'])
         for album_id in tqdm(range(start_id, end_id), desc="Image loading"):
-            album_num = str(album_id).zfill(5)
+            album_num = str(album_id).zfill(6)
             url = self.base_url + album_num
             content = requests.get(url).content
             soup = BeautifulSoup(content, 'html.parser')
@@ -31,6 +31,8 @@ class NudeGirlParser:
                     tag = re.search(r'href="(.*?)"', str(a_tag)).group(1)
                     if 'tag' in tag:
                         tags.append(a_tag.text)
+            if 'Sex' in tags or 'Lesbian' in tags:
+                continue
             for ul_tag in soup.find_all('ul', 'list-gallery static css'):
                 for i, li_tag in enumerate(ul_tag.find_all('li')):
                     image_url = re.search(r'href="(.*?)"', str(li_tag)).group(1)
@@ -47,4 +49,4 @@ class NudeGirlParser:
 
 if __name__ == "__main__":
     parser = NudeGirlParser()
-    parser.load_nude_images(50000, 50010)
+    parser.load_nude_images()
