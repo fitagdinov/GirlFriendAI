@@ -1,0 +1,5 @@
+instant_id:
+  url: 'https://instantx-instantid.hf.space/?__theme=light'
+  webdriver_args:
+    - '--no-sandbox'
+  #  - '--headless'

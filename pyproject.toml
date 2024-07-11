@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "girlfriendai"
+version = "0.1.0"
+description = "GirlFriendAI"
+authors = ["Parutin Maxim <parutin.ma@phystech.edu>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+selenium = "^4.22.0"
+pytelegrambotapi = "^4.21.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
