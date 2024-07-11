@@ -56,8 +56,6 @@ def parse_generated_photo(face_path: str | Path,
         submit_button = WebDriverWait(browser, 20).until(ec.presence_of_element_located((By.ID, "component-9")))
         submit_button.click()
 
-        result_box = WebDriverWait(browser, 20).until(ec.presence_of_element_located((By.ID, "component-32")))
-
         result = WebDriverWait(browser, 100).until(ec.presence_of_element_located(
             (By.CSS_SELECTOR, "#component-32 > div.icon-buttons.svelte-1l6wqyv > a")))
         result_url = result.get_attribute("href")
