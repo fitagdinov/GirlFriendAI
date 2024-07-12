@@ -1,0 +1,5 @@
+token: "*** your token ***"
+messages:
+  welcome:
+    start: "Hello! This is the main GirlFriendAI bot that creates AI girls to chat with."
+    navigation: >
