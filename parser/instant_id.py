@@ -8,9 +8,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
-from config import ParserConfig
+from parser import ParserConfig
 
-with open('config.yaml') as file:
+with open(Path('./config_ru.yaml').resolve()) as file:
     params = yaml.load(file, yaml.SafeLoader)
 
 cfg = ParserConfig(**params['instant_id'])
