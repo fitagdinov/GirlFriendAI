@@ -153,8 +153,7 @@ dmypy.json
 cython_debug/
 
 # data
-data/img_nudes
-data/data_nudes.csv
+data
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

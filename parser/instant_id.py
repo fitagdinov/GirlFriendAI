@@ -10,7 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from parser import ParserConfig
 
-with open(Path('./config_ru.yaml').resolve()) as file:
+with open(Path('./config.yaml').resolve()) as file:
     params = yaml.load(file, yaml.SafeLoader)
 
 cfg = ParserConfig(**params['instant_id'])
@@ -65,6 +65,6 @@ def parse_generated_photo(face_path: str | Path,
 
 
 if __name__ == "__main__":
-    print(parse_generated_photo("../examples/face/eva_elfie.jpg",
+    print(parse_generated_photo("../data/temp/photo_680936390.jpg",
                                 "../examples/pose/raised_hands.jpg",
-                                "naked girl near the car"))
+                                "naked girl on the beach, beautiful face"))
