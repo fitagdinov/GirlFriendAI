@@ -1,3 +1,5 @@
+import os
+
 from telebot import types
 
 from bots.main_bot.bot import MainBot
@@ -6,7 +8,7 @@ from bots.main_bot.content import cfg
 
 from db.utils import get_engine
 
-bot = MainBot("6362570409:AAHoYwCL9Uz9UdNPP9mnQCDbvYXbEOsPXtA")
+bot = MainBot(os.getenv("TOKEN"))
 bot.set_engine(get_engine())
 
 
