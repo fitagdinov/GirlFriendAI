@@ -1,0 +1,30 @@
+version: '0.1'
+
+
+services:
+  pg_db:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=Girlfriend_AI
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    ports:
+      - ${POSTGRES_PORT:-5432}:5432
+    networks:
+      - net
+  dev:
+    image: dev:1
+    volumes:
+      - /home/Girlfriend_AI_global:/home/GIA
+    networks:
+      - net
+    tty: true
+    
+    
+
+networks:
+  net:
+    driver: bridge
