@@ -87,3 +87,39 @@ class NoFreeBotsError(KnownError):
         text = "Нет доступных ботов."
         super().__init__(text)
 
+
+class TooManyAttemptsError(KnownError):
+    def __init__(self, seconds_to_wait: int):
+        text = f"Слишком много запросов. Необходимо подождать {seconds_to_wait} секунд."
+        super().__init__(text)
+
+
+class NotAlphaUserError(KnownError):
+    def __init__(self):
+        text = "Вы не являетесь участником Альфа-тестирования. Подробности уточняйте у @Fitagdinov."
+        super().__init__(text)
+
+
+class NoCreatedGirlsError(KnownError):
+    def __init__(self):
+        text = "У вас нет созданных AI девушек, чтобы удалить их."
+        super().__init__(text)
+
+
+class IncorrectGirlUsernameError(KnownError):
+    def __init__(self):
+        text = "У вас нет девушки с таким никнеймом."
+        super().__init__(text)
+
+
+class BanError(KnownError):
+    def __init__(self, type_: str, seconds: int):
+        end = f"Следующая попытка через {seconds} секунд."
+        if type_ == "remove":
+            start = "Разрешено не более одного удаления в сутки."
+        elif type_ == "create":
+            start = "Разрешено не более одного создания в сутки."
+        else:
+            start = "Действие запрещено."
+        text = " ".join([start, end])
+        super().__init__(text)

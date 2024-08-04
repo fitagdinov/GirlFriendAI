@@ -17,6 +17,8 @@ bot.set_engine(get_engine())
 def welcome(message: types.Message | types.CallbackQuery):
     bot.add_user_if_not_exists(message.from_user)
     bot.send_message(message.from_user.id, cfg["messages"]["welcome"], reply_markup=markup.welcome())
+    if not bot.is_alpha_user(message.from_user):
+        bot.send_message(message.from_user.id, cfg["messages"]["welcome_extra"])
 
 
 @bot.callback_query_handler(lambda call: call.data == "welcome_create")
@@ -26,15 +28,22 @@ def create(call: types.CallbackQuery):
     bot.send_message(call.from_user.id, cfg["messages"]["create"], reply_markup=markup.create())
 
 
-@bot.callback_query_handler(lambda call: call.data == "welcome_edit")
-@bot.exception()
-def edit(call: types.CallbackQuery):
-    bot.send_message(call.from_user.id, "Пока не работает(", reply_markup=markup.welcome())
-
-
 @bot.callback_query_handler(lambda call: call.data == "welcome_remove")
 @bot.exception()
 def remove(call: types.CallbackQuery):
+    girl_names = bot.get_girls_names(call.from_user)
+
+    @bot.exception()
+    def remove_girl(message: types.Message):
+        bot.remove_girl(call.from_user, message.text)
+
+    bot.send_message(call.from_user.id, cfg["messages"]["remove"], reply_markup=markup.remove(girl_names))
+    bot.register_next_step_handler(call.message, remove_girl)
+
+
+@bot.callback_query_handler(lambda call: call.data == "welcome_edit")
+@bot.exception()
+def edit(call: types.CallbackQuery):
     bot.send_message(call.from_user.id, "Пока не работает(", reply_markup=markup.welcome())
 
 

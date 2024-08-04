@@ -1,11 +1,17 @@
-from sqlalchemy import Text, MetaData, Integer, BigInteger
+from sqlalchemy import Text, MetaData, Integer, BigInteger, DateTime
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
+from datetime import datetime
 
 class Base(DeclarativeBase):
     metadata = MetaData(schema="general")
+
+
+class AlphaUser(Base):
+    __tablename__ = "alpha_user"
+    username: Mapped[str] = mapped_column(Text(), nullable=False, primary_key=True)
 
 
 class User(Base):
@@ -21,7 +27,9 @@ class Girl(Base):
     __tablename__ = "girl"
     id: Mapped[int] = mapped_column(BigInteger(), primary_key=True)
     owner_id: Mapped[int] = mapped_column(BigInteger(), nullable=False)
+    account_id: Mapped[int] = mapped_column(BigInteger(), nullable=False)
     token: Mapped[str] = mapped_column(Text(), nullable=False)
+    is_active: Mapped[int] = mapped_column(BigInteger(), nullable=False)
     username: Mapped[str] = mapped_column(Text(), nullable=False)
     first_name: Mapped[str] = mapped_column(Text(), nullable=False)
     age: Mapped[str] = mapped_column(Text(), nullable=False)
@@ -56,5 +64,13 @@ class Account(Base):
     api_id: Mapped[int] = mapped_column(BigInteger(), nullable=False)
     api_hash: Mapped[str] = mapped_column(Text(), nullable=False)
     string: Mapped[str] = mapped_column(Text(), nullable=False)
+    bots_num: Mapped[int] = mapped_column(Integer(), nullable=False)
 
 
+class Ban(Base):
+    __tablename__ = "ban"
+    id: Mapped[int] = mapped_column(Integer(), primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger(), nullable=False)
+    type: Mapped[str] = mapped_column(Text(), nullable=False)
+    dt: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow())
+    seconds: Mapped[int] = mapped_column(BigInteger(), default=60*60*24)

@@ -21,3 +21,9 @@ def create() -> types.InlineKeyboardMarkup:
                types.InlineKeyboardButton("✏️ Сохранить", callback_data="create_save"))
     markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data="create_back"))
     return markup
+
+
+def remove(girl_names: list[str]) -> types.ReplyKeyboardMarkup:
+    markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    markup.add(*[types.KeyboardButton(f"@{name}") for name in girl_names])
+    return markup

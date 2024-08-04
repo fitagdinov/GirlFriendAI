@@ -1,5 +1,9 @@
+import io
 import telebot
 import logging
+import asyncio
+
+from datetime import datetime, timedelta
 
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
@@ -38,6 +42,19 @@ class MainBot(telebot.TeleBot):
         self.engine = engine
         self.parse_mode = "Markdown"
 
+    def ban_check(self, user: types.User, type_: str):
+        with Session(self.engine) as session:
+            stmt = select(table.Ban).where(table.Ban.user_id == user.id, table.Ban.type == type_)
+            ban: table.Ban | None = session.scalars(stmt).one_or_none()
+            if ban is not None:
+                expired_dt: datetime = ban.dt + timedelta(seconds=ban.seconds)
+                delta = expired_dt - datetime.utcnow()
+                if delta.seconds > 0:
+                    raise exc.BanError(type_, delta.seconds)
+                ban = session.get(table.Ban, ban.id)
+                session.delete(ban)
+                session.commit()
+
     def add_user_if_not_exists(self, user: types.User):
         with Session(self.engine) as session:
             if session.get(table.User, user.id) is None:
@@ -50,6 +67,12 @@ class MainBot(telebot.TeleBot):
                 )
                 session.add(user_to_add)
                 session.commit()
+
+    def is_alpha_user(self, user: types.User) -> bool:
+        with Session(self.engine) as session:
+            if session.get(table.AlphaUser, user.username):
+                return True
+        return False
 
     def create_temp_girl_for_user(self, user: types.User):
         with Session(self.engine) as session:
@@ -101,14 +124,17 @@ class MainBot(telebot.TeleBot):
         with Session(self.engine) as session:
             account: table.Account = session.scalars(select(table.Account)).one()
 
-        with Client("some_bot", session_string=account.string) as client:
-            try:
-                result = client.invoke(functions.account.CheckUsername(username=username))
-            except Exception as e:
-                raise exc.InvalidUsernameError()
+        async def async_client():
+            client = Client("some_bot", session_string=account.string)
+            async with client:
+                try:
+                    result = await client.invoke(functions.account.CheckUsername(username=username))
+                except Exception:
+                    raise exc.InvalidUsernameError()
+            if not result:
+                raise exc.NotAvailableUsernameError()
 
-        if not result:
-            raise exc.NotAvailableUsernameError()
+        asyncio.run(async_client())
 
         with Session(self.engine) as session:
             temp_girl = session.get(table.TempGirl, user.id)
@@ -207,51 +233,160 @@ class MainBot(telebot.TeleBot):
             text = cfg["callback_messages"]["preview"].format(
                 age=temp_girl.age,
                 name=temp_girl.first_name,
-                appearance=temp_girl.appearance
+                appearance=temp_girl.appearance,
+                username=temp_girl.username,
+                interests=temp_girl.interests
             )
             if temp_girl.photo_file_id:
-                self.send_photo(user.id, temp_girl.photo_file_id, text, reply_markup=markup.create())
+                self.send_photo(user.id, temp_girl.photo_file_id, text, reply_markup=markup.create(), parse_mode="HTML")
             else:
-                self.send_message(user.id, text, reply_markup=markup.create())
+                self.send_message(user.id, text, reply_markup=markup.create(), parse_mode="HTML")
 
     def create_girl_for_user(self, user: types.User):
+        async def create_bot(account_string: str, girl: table.TempGirl | None) -> str:
+            client = Client("create_bot", session_string=account_string)
+            bot_father = "BotFather"
+            async with client:
+                await client.send_message(bot_father, "/newbot")
+                await asyncio.sleep(1)
+                async for msg in client.get_chat_history(bot_father, 1):
+                    if msg.text.startswith("Sorry, too many attempts."):
+                        seconds_to_wait = int(''.join([x for x in msg.text if x.isdigit()]))
+                        raise exc.TooManyAttemptsError(seconds_to_wait)
+
+                await client.send_message(bot_father, girl.first_name)
+                await asyncio.sleep(1)
+                async for msg in client.get_chat_history(bot_father, 1):
+                    if not msg.text.startswith("Good."):
+                        raise exc.InvalidNameError(cfg["limitations"]["name_len"]["min"],
+                                                   cfg["limitations"]["name_len"]["max"])
+
+                await client.send_message(bot_father, girl.username)
+                await asyncio.sleep(1)
+                async for msg in client.get_chat_history(bot_father, 1):
+                    if not msg.text.startswith("Done!"):
+                        raise exc.InvalidUsernameError()
+                    token_str = msg.text.markdown[msg.text.markdown.find('`') + 1:msg.text.markdown.rfind('`')]
+
+                if girl.photo_file_id:
+                    await client.send_message(bot_father, "/setuserpic")
+                    await asyncio.sleep(1)
+                    await client.send_message(bot_father, f"@{girl.username}")
+                    await asyncio.sleep(1)
+                    file_info = self.get_file(str(girl.photo_file_id))
+                    file = self.download_file(file_info.file_path)
+                    await client.send_photo(bot_father, io.BytesIO(file))
+                    await asyncio.sleep(1)
+
+                if girl.age:
+                    await client.send_message(bot_father, "/setabouttext")
+                    await asyncio.sleep(1)
+                    await client.send_message(bot_father, f"@{girl.username}")
+                    await asyncio.sleep(1)
+                    await client.send_message(bot_father, f"{girl.age} y.o.")
+                    await asyncio.sleep(1)
+
+                return token_str
+
+        if not self.is_alpha_user(user):
+            raise exc.NotAlphaUserError()
+
+        self.ban_check(user, "create")
+
         with Session(self.engine) as session:
             temp_girl = session.get(table.TempGirl, user.id)
 
-            if not all([temp_girl.first_name, temp_girl.age, temp_girl.appearance, temp_girl.photo_file_id]):
+            if not all([temp_girl.first_name, temp_girl.age, temp_girl.appearance,
+                        temp_girl.photo_file_id, temp_girl.username, temp_girl.interests]):
                 raise exc.NotAllParamsFilledError()
 
-            stmt = select(table.Token).where(table.Token.is_free == 1)
-            token = session.scalars(stmt).one_or_none()
+            stmt = select(table.Account).where(table.Account.bots_num < 20)
+            account: table.Account | None = session.scalars(stmt).one_or_none()
 
-            if token is None:
+            if account is None:
                 raise exc.NoFreeBotsError()
 
-            token = session.get(table.Token, token.id)
+            self.send_message(user.id, cfg["callback_messages"]["save_processing"])
+
+            token_string = asyncio.run(create_bot(account.string, temp_girl))
+            token_id = int(token_string.split(":")[0])
 
             girl_to_add = table.Girl(
-                id=token.id,
+                id=token_id,
                 owner_id=user.id,
-                token=token.token,
-                username=token.username,
+                account_id=account.id,
+                token=token_string,
+                is_active=1,
+                username=temp_girl.username,
                 first_name=temp_girl.first_name,
                 age=temp_girl.age,
                 photo_file_id=temp_girl.photo_file_id,
-                appearance=temp_girl.appearance
+                appearance=temp_girl.appearance,
+                interests=temp_girl.interests
             )
+
             session.add(girl_to_add)
             session.commit()
-            self.send_message(user.id, cfg["callback_messages"]["save"], reply_markup=markup.welcome())
 
-    def create_bots_for_account(self, account_id: int):
+            account.bots_num += 1
+            session.add(account)
+            session.commit()
+
+            session.delete(temp_girl)
+            session.commit()
+
+            ban = table.Ban(user_id=user.id, type="create")
+            session.add(ban)
+            session.commit()
+
+        self.send_message(user.id, cfg["callback_messages"]["save"], reply_markup=markup.welcome())
+
+    def get_girls_names(self, user: types.User) -> list[str]:
         with Session(self.engine) as session:
-            account = session.get(table.Account, account_id)
-            stmt = select(table.Token).where(table.Token.account_id == account_id)
-            tokens = session.scalars(stmt).all()
+            stmt = select(table.Girl).where(table.Girl.owner_id == user.id)
+            girls = session.scalars(stmt).all()
+            if len(girls) == 0:
+                raise exc.NoCreatedGirlsError()
+        return [girl.username for girl in girls]
 
-        with sync.TelegramClient(StringSession(account.string), account.api_id, account.api_hash) as client:
-            client: sync.TelegramClient
+    def remove_girl(self, user: types.User, girl_username: str):
+        async def delete_bot(account_string: str, username: str):
+            client = Client("create_bot", session_string=account_string)
             bot_father = "BotFather"
-            client.send_message(bot_father, "/newbot")
-            client.send_message(bot_father, "Default")
-            client.send_message(bot_father, "Default")
+            async with client:
+                await client.send_message(bot_father, "/deletebot")
+                await asyncio.sleep(1)
+
+                await client.send_message(bot_father, f"@{username}")
+                await asyncio.sleep(1)
+                async for msg in client.get_chat_history(bot_father, 1):
+                    if msg.text.startswith("Invalid bot selected:"):
+                        raise exc.IncorrectGirlUsernameError()
+
+                await client.send_message(bot_father, "Yes, I am totally sure.")
+
+        self.ban_check(user, "remove")
+
+        with Session(self.engine) as session:
+            stmt = select(table.Girl).where(table.Girl.owner_id == user.id, table.Girl.username == girl_username[1:])
+            girl: table.Girl | None = session.scalars(stmt).one_or_none()
+            if girl is None:
+                raise exc.NoCreatedGirlsError()
+
+            girl = session.get(table.Girl, girl.id)
+            account = session.get(table.Account, girl.account_id)
+
+            asyncio.run(delete_bot(account.string, girl.username))
+
+            session.delete(girl)
+            session.commit()
+
+            account.bots_num -= 1
+            session.add(account)
+            session.commit()
+
+            ban = table.Ban(user_id=user.id, type="remove")
+            session.add(ban)
+            session.commit()
+
+        self.send_message(user.id, cfg["callback_messages"]["remove"], reply_markup=markup.welcome())
