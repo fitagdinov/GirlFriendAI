@@ -30,4 +30,4 @@ def delete_db():
         drop_database(engine.url)
         print("DROP BD")
 if __name__ == "__main__":
-    delete_db()
+    create_db()
